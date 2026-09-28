@@ -16,6 +16,7 @@ import {
   ThreatIntelligenceRegistry,
 } from './threatIntelligence/defaultProvider';
 import { ThreatVerdict } from './threatIntelligence/types';
+import { globalAlertEngine } from './notifications/AlertEngine';
 
 export type SecurityRiskLevel =
   | 'LOW RISK'
@@ -291,7 +292,7 @@ export class SafeAnalysisPipeline {
       whatCouldNotBeVerified.push('Threat intelligence database has no prior reported incidents for this VPA. (Absence of reports is unrated, not guaranteed safe).');
     }
 
-    return {
+    const resultScreen: SafeAnalysisResultScreen = {
       riskLevel,
       riskSummary: riskLevel === 'HIGH RISK'
         ? 'High-risk payment QR code with strong indicators of unauthorized debit or impersonation.'
@@ -328,6 +329,26 @@ export class SafeAnalysisPipeline {
       whatTheUserShouldDo,
       assessedAtEpochMs: Date.now(),
     };
+
+    if (riskLevel === 'HIGH RISK') {
+      try {
+        globalAlertEngine.processEvent({
+          id: `sec_qr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          type: 'SECURITY',
+          severity: 'HIGH',
+          title: 'Dangerous Payment QR Detected',
+          summary: resultScreen.riskSummary,
+          details: whyItMatters.map((w) => `${w.title}: ${w.explanation}`).join('; '),
+          source: 'QR Security Scanner',
+          deepLink: 'apkaDhan://alerts',
+          requiresAction: true,
+          isRead: false,
+          isTest: false,
+        });
+      } catch (e) {}
+    }
+
+    return resultScreen;
   }
 
   /**
@@ -443,7 +464,7 @@ export class SafeAnalysisPipeline {
       whatCouldNotBeVerified.push('Domain has no incident history in threat registry. (Absence of reports does not guarantee safety for newly registered domains).');
     }
 
-    return {
+    const resultScreen: SafeAnalysisResultScreen = {
       riskLevel,
       riskSummary: riskLevel === 'HIGH RISK'
         ? 'Dangerous payment or phishing link detected. High risk of credential harvesting or malware delivery.'
@@ -484,6 +505,26 @@ export class SafeAnalysisPipeline {
       whatTheUserShouldDo,
       assessedAtEpochMs: Date.now(),
     };
+
+    if (riskLevel === 'HIGH RISK') {
+      try {
+        globalAlertEngine.processEvent({
+          id: `sec_link_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          type: 'SECURITY',
+          severity: 'HIGH',
+          title: 'Suspicious Payment Link Detected',
+          summary: resultScreen.riskSummary,
+          details: whyItMatters.map((w) => `${w.title}: ${w.explanation}`).join('; '),
+          source: 'Link Security Analyzer',
+          deepLink: 'apkaDhan://alerts',
+          requiresAction: true,
+          isRead: false,
+          isTest: false,
+        });
+      } catch (e) {}
+    }
+
+    return resultScreen;
   }
 
   /**

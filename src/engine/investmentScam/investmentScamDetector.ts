@@ -10,6 +10,7 @@ import {
   RegulatoryVerificationAdapter,
   globalRegulatoryAdapter,
 } from './regulatoryAdapter';
+import { globalAlertEngine } from '../notifications/AlertEngine';
 
 /**
  * APKA DHAN AI - INVESTMENT SCAM DETECTOR
@@ -548,7 +549,7 @@ export class InvestmentScamDetector {
       sourceRequirements.push('Official SEBI SCORES portal dispute resolution details.');
     }
 
-    return {
+    const assessmentResult: InvestmentScamAssessment = {
       riskLevel,
       signals,
       evidence,
@@ -560,6 +561,26 @@ export class InvestmentScamDetector {
       assessedAtEpochMs: Date.now(),
       summaryRationale,
     };
+
+    if (riskLevel === 'HIGH RISK') {
+      try {
+        globalAlertEngine.processEvent({
+          id: `inv_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          type: 'INVESTMENT',
+          severity: 'HIGH',
+          title: 'Suspicious Investment Scheme Detected',
+          summary: summaryRationale || 'Investment offer with high-risk coercive or unverified return claims detected.',
+          details: evidence.join('; '),
+          source: 'Investment Scam Detector (SEBI / SCORES Heuristics)',
+          deepLink: 'apkaDhan://alerts',
+          requiresAction: true,
+          isRead: false,
+          isTest: false,
+        });
+      } catch (e) {}
+    }
+
+    return assessmentResult;
   }
 
   private extractRegistrationNumber(text: string): string | null {

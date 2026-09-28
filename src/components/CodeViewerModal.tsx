@@ -889,6 +889,50 @@ class CryptoIntelligenceTest {
         // Verifies trade execution rejection invariant
     }
 }`
+  },
+  'UnifiedPortfolioEngine.kt': {
+    title: 'UnifiedPortfolioEngine.kt (Aggregator)',
+    category: 'Unified Portfolio',
+    code: `package com.apkadhan.ai.core.portfolio
+
+/**
+ * APKA DHAN AI - UNIFIED PORTFOLIO ENGINE (Android Clean Architecture)
+ * Aggregates: Stocks, Mutual Funds, ETFs, and Crypto.
+ *
+ * CONSTITUTIONAL INVARIANTS:
+ * - Factual risk observations ("High concentration detected")
+ * - Strictly NO trade directives ("Sell this asset")
+ * - Transparent step-by-step explainable calculations
+ * - Zero personalized financial advice
+ */
+class UnifiedPortfolioEngine(private val holdings: MutableList<UnifiedAssetHolding> = mutableListOf()) {
+    fun calculateAssessment(): UnifiedPortfolioAssessment {
+        // Computes aggregate valuation, P/L, class allocations, and HHI concentration
+    }
+}`
+  },
+  'UnifiedPortfolioTest.kt': {
+    title: 'UnifiedPortfolioTest.kt (Tests)',
+    category: 'Tests',
+    code: `package com.apkadhan.ai.core.portfolio
+
+import org.junit.Assert.*
+import org.junit.Test
+
+/**
+ * Unit Tests for Multi-Asset Aggregation & Descriptive Risk Signals
+ */
+class UnifiedPortfolioTest {
+    @Test
+    fun testUnifiedPortfolioCalculations_MultiAsset() {
+        // Verifies 4 asset classes: Stocks, MFs, ETFs, Crypto
+    }
+
+    @Test
+    fun testHighConcentration_ProducesDescriptiveSignalNotSellAdvice() {
+        // Verifies "High concentration detected" instead of "Sell this asset"
+    }
+}`
   }
 };
 

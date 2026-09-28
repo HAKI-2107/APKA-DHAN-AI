@@ -1192,6 +1192,244 @@ Provide in JSON:
   }
 });
 
+// ==========================================
+// GOVERNMENT OPEN DATA & API SETU ENDPOINTS
+// ==========================================
+import { GovernmentDataCatalog } from './src/engine/dataSource/GovernmentDataCatalog';
+import { ApiSetuCatalog } from './src/engine/dataSource/ApiSetuCatalog';
+import { globalLiveMarketDataProvider } from './src/engine/dataSource/LiveMarketDataProvider';
+import { globalLiveCryptoDataProvider } from './src/engine/dataSource/LiveCryptoDataProvider';
+import { DeveloperDataCenterService } from './src/engine/dataSource/DeveloperDataCenterService';
+import { globalUnifiedPortfolioEngine } from './src/engine/unifiedPortfolio/unifiedPortfolioEngine';
+
+// 1. Government Open Data Catalog Metadata
+app.get('/api/government-data/catalog', (_req, res) => {
+  res.json({
+    success: true,
+    catalog: GovernmentDataCatalog.getMetadataCatalog(),
+  });
+});
+
+// 2. UPI Digital Payments Adoption Statistics (data.gov.in)
+app.get('/api/government-data/upi-stats', (_req, res) => {
+  res.json({
+    success: true,
+    response: GovernmentDataCatalog.getUpiTransactions(),
+  });
+});
+
+// 3. Historical UPI Fraud Ombudsman Trends (RBI/MoF)
+app.get('/api/government-data/upi-fraud', (_req, res) => {
+  res.json({
+    success: true,
+    response: GovernmentDataCatalog.getUpiFraudStatistics(),
+  });
+});
+
+// 4. MCA Company Master Data Search
+app.get('/api/government-data/mca-search', (req, res) => {
+  const query = (req.query.q as string) || '';
+  res.json({
+    success: true,
+    response: GovernmentDataCatalog.searchMcaCompany(query),
+  });
+});
+
+// 5. NCRB Cybercrime Financial Fraud Trends
+app.get('/api/government-data/ncrb-stats', (_req, res) => {
+  res.json({
+    success: true,
+    response: GovernmentDataCatalog.getNcrbCybercrimeStats(),
+  });
+});
+
+// 6. API Setu Directory Catalog
+app.get('/api/apisetu/directory', (_req, res) => {
+  res.json({
+    success: true,
+    directory: ApiSetuCatalog.getDirectory(),
+  });
+});
+
+// 7. API Setu Sandbox Test
+app.post('/api/apisetu/test-sandbox', (req, res) => {
+  const { apiId, payload = {} } = req.body;
+  if (!apiId) {
+    return res.status(400).json({ error: 'apiId is required' });
+  }
+  const result = ApiSetuCatalog.testSandbox(apiId, payload);
+  res.json({ success: true, response: result });
+});
+
+// 8. Live Market Quotes (Stocks)
+app.get('/api/market-data/quotes', (_req, res) => {
+  const quotes = globalLiveMarketDataProvider.getAllQuotes();
+  res.json({
+    success: true,
+    connected: globalLiveMarketDataProvider.isNetworkConnected(),
+    quotes,
+  });
+});
+
+// 9. Live Crypto Quotes
+app.get('/api/crypto-data/quotes', (_req, res) => {
+  const quotes = globalLiveCryptoDataProvider.getAllQuotes();
+  res.json({
+    success: true,
+    connected: globalLiveCryptoDataProvider.isNetworkConnected(),
+    quotes,
+  });
+});
+
+// 10. Developer Data Center Diagnostics
+app.get('/api/data-center/diagnostics', (_req, res) => {
+  res.json({
+    success: true,
+    diagnostics: DeveloperDataCenterService.getDiagnostics(),
+  });
+});
+
+// 11. Developer Data Center: Clear Cache
+app.post('/api/data-center/clear-cache', (_req, res) => {
+  res.json({
+    success: true,
+    result: DeveloperDataCenterService.clearCache(),
+  });
+});
+
+// 12. Developer Data Center: Toggle Network State
+app.post('/api/data-center/toggle-network', (req, res) => {
+  const { domain, connected } = req.body;
+  if (domain === 'market') {
+    DeveloperDataCenterService.toggleMarketConnection(Boolean(connected));
+  } else if (domain === 'crypto') {
+    DeveloperDataCenterService.toggleCryptoConnection(Boolean(connected));
+  }
+  res.json({ success: true, domain, connected: Boolean(connected) });
+});
+
+// 13. Developer Real-Time Simulator
+app.post('/api/data-center/simulate-event', async (req, res) => {
+  const { eventType, payload = {} } = req.body;
+  let result: any = null;
+
+  switch (eventType) {
+    case 'NEW_STOCK_TICK': {
+      const sym = payload.symbol || 'RELIANCE.NS';
+      const price = parseFloat(payload.price) || (2980 + (Math.random() * 40 - 20));
+      result = globalLiveMarketDataProvider.pushTick({ symbol: sym, lastPrice: Number(price.toFixed(2)) });
+      break;
+    }
+    case 'NEW_CRYPTO_TICK': {
+      const sym = payload.symbol || 'BTC';
+      const priceInr = parseFloat(payload.priceInr) || (5489100 + (Math.random() * 50000 - 25000));
+      result = globalLiveCryptoDataProvider.pushTick({ symbol: sym, priceInr: Number(priceInr.toFixed(2)) });
+      break;
+    }
+    case 'SUSPICIOUS_LINK': {
+      const testUrl = payload.url || 'https://hdfc-kyc-verify.top/pan-link';
+      result = await globalSafeAnalysisPipeline.execute({ paymentLink: testUrl });
+      break;
+    }
+    case 'REPORTED_UPI': {
+      const testVpa = payload.vpa || 'customer-care-refund@okhdfcbank';
+      const upiPayload = testVpa.startsWith('upi://') ? testVpa : `upi://pay?pa=${encodeURIComponent(testVpa)}&pn=CustomerSupport`;
+      result = await globalSafeAnalysisPipeline.execute({ qrPayload: upiPayload });
+      break;
+    }
+    case 'INVESTMENT_SCAM_SIGNAL': {
+      const testScam = payload.text || 'Guaranteed 25% daily return with zero risk VIP trading group on Telegram.';
+      result = await globalInvestmentScamDetector.analyze({
+        text: testScam,
+        sourceType: 'WHATSAPP_MESSAGE',
+      });
+      break;
+    }
+    default:
+      return res.status(400).json({ error: `Unknown eventType: ${eventType}` });
+  }
+
+  res.json({
+    success: true,
+    eventType,
+    isSimulated: true,
+    result,
+    simulatedNotice: 'SIMULATED EVENT: Executed strictly through identical production engine pipeline.',
+  });
+});
+
+// 14. "Ask Apka Dhan" AI Safety Assistant (Conversational Multi-Turn Gemini Assistant)
+app.post('/api/ai-assistant/chat', async (req, res) => {
+  const { message, conversationHistory = [] } = req.body;
+  if (!message || typeof message !== 'string') {
+    return res.status(400).json({ error: 'Message text is required' });
+  }
+
+  // System instruction for financial safety assistant
+  const systemInstruction = `You are "Apka Dhan AI", a calm, trustworthy financial safety companion for Indian users.
+CORE CONSTITUTION:
+1. Help users stay safe with money and understand their financial activity.
+2. Explain technical and financial jargon (like Volatility, P/E ratio, Market Cap, HHI, Phishing, Collect Requests) in simple, friendly, layman-friendly words.
+3. NEVER provide direct investment directives (Do NOT say "Buy this", "Sell this", "This coin will 10x").
+4. NEVER claim an AI prediction is infallible proof of fraud. Use evidence-based language like "This interaction contains warning signs."
+5. When explaining risks, highlight: What happened, Why it matters, What was checked, What could not be confirmed, and What the user should do.
+6. Keep initial responses concise (3-4 sentences), offering "Feel free to ask for deeper technical details if you want."`;
+
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      // Build contents array with conversation history
+      const contents: any[] = [];
+      for (const turn of conversationHistory.slice(-6)) {
+        contents.push({
+          role: turn.role === 'user' ? 'user' : 'model',
+          parts: [{ text: turn.text }],
+        });
+      }
+      contents.push({
+        role: 'user',
+        parts: [{ text: message }],
+      });
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents,
+        config: {
+          systemInstruction,
+          temperature: 0.2,
+        },
+      });
+
+      const reply = response.text || 'I am here to help you stay safe with your payments and investments.';
+      return res.json({
+        success: true,
+        reply,
+        model: 'gemini-3.5-flash',
+      });
+    } catch (err: any) {
+      console.warn('AI Assistant Gemini call failed:', err.message);
+    }
+  }
+
+  // Local fallback response if Gemini is unavailable
+  let fallbackReply = 'I am your Apka Dhan financial safety companion. ';
+  const lowerMsg = message.toLowerCase();
+  if (lowerMsg.includes('volatility')) {
+    fallbackReply += 'Volatility simply describes how sharply and quickly an asset\'s price moves up or down over time.';
+  } else if (lowerMsg.includes('collect request')) {
+    fallbackReply += 'A collect request asks your bank to DEBIT money from your account. You NEVER need to enter your UPI PIN to receive money.';
+  } else if (lowerMsg.includes('warning') || lowerMsg.includes('risk')) {
+    fallbackReply += 'When Apka Dhan shows a warning, it means we found one or more suspicious signals (like an unverified recipient or high pressure wording). Always verify independently before paying.';
+  } else {
+    fallbackReply += 'Always verify payment recipients and avoid guaranteed return schemes. You can ask me to explain any financial warning or investment term.';
+  }
+
+  res.json({
+    success: true,
+    reply: fallbackReply,
+    model: 'local-companion-fallback',
+  });
+});
+
 // Server Initialization with Vite Middlewares
 async function startServer() {
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;

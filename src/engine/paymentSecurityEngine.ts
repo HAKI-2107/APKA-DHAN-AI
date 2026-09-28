@@ -11,6 +11,7 @@ import {
 } from './types';
 import { InMemoryThreatLookupService } from './threatLookup';
 import { ALL_INITIAL_RULES } from './rules';
+import { globalAlertEngine } from './notifications/AlertEngine';
 
 export class PaymentSecurityEngine {
   private rules: PaymentSecurityRule[] = [];
@@ -92,6 +93,28 @@ export class PaymentSecurityEngine {
 
     // 8. RISK AGGREGATION
     const riskLevel = this.aggregateRisk(entities, finalSignals);
+
+    // Notify Alert Engine if high risk or critical signal detected
+    if (riskLevel === 'HIGH RISK') {
+      try {
+        globalAlertEngine.processEvent({
+          id: `pay_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          type: 'PAYMENT',
+          severity: 'HIGH',
+          title: entities.vpa ? `Suspicious UPI Payment: ${entities.vpa}` : 'Suspicious Payment Request',
+          summary: finalSignals[0]?.description || 'High risk transaction or collect-request detected.',
+          details: finalSignals.map((s) => `${s.title}: ${s.description}`).join('; '),
+          source: 'PaymentSecurityEngine',
+          deepLink: 'apkaDhan://alerts',
+          requiresAction: true,
+          isRead: false,
+          isTest: false,
+          metadata: { payeeVpa: entities.vpa, amount: entities.amount },
+        });
+      } catch (err) {
+        // Safe failover
+      }
+    }
 
     // 9. EXPLANATION SYNTHESIS
     return this.synthesizeExplanation(entities, finalSignals, riskLevel);

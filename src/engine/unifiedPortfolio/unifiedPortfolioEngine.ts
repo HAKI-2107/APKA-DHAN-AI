@@ -9,6 +9,7 @@ import {
   ExplainableCalculation,
   UnifiedPortfolioAssessment,
 } from './types';
+import { globalAlertEngine } from '../notifications/AlertEngine';
 
 /**
  * APKA DHAN AI - UNIFIED PORTFOLIO ENGINE
@@ -192,6 +193,18 @@ export class UnifiedPortfolioEngine {
     return true;
   }
 
+  updatePriceBySymbol(symbolOrIdentifier: string, newPrice: number): boolean {
+    const sym = symbolOrIdentifier.trim().toUpperCase();
+    let found = false;
+    for (const holding of this.holdings.values()) {
+      if (holding.symbolOrIdentifier === sym) {
+        holding.currentPrice = newPrice;
+        found = true;
+      }
+    }
+    return found;
+  }
+
   removeHolding(id: string): boolean {
     return this.holdings.delete(id);
   }
@@ -362,6 +375,25 @@ export class UnifiedPortfolioEngine {
         explanationMath: `Formula: (Asset Current Value ₹${topAssetPos.currentValue.toLocaleString('en-IN')} / Total Portfolio Value ₹${totalCurrentValue.toLocaleString('en-IN')}) × 100 = ${topAssetPos.portfolioWeightPercent}%, exceeding standard conservative 20% single-holding threshold.`,
         statutoryDisclaimer: 'Analytical risk observation only. Does NOT constitute personalized financial advice, trade recommendations, or sell instructions.',
       });
+
+      if (topAssetPos.portfolioWeightPercent >= 35.0) {
+        try {
+          globalAlertEngine.processEvent({
+            id: `port_conc_${topAssetPos.holding.id}`,
+            type: 'PORTFOLIO',
+            severity: topAssetPos.portfolioWeightPercent >= 45.0 ? 'HIGH' : 'MEDIUM',
+            title: `Portfolio Concentration: ${topAssetPos.holding.name}`,
+            summary: `${topAssetPos.holding.name} accounts for ${topAssetPos.portfolioWeightPercent}% of total portfolio value.`,
+            details: `Position value is ₹${topAssetPos.currentValue.toLocaleString('en-IN')} out of ₹${totalCurrentValue.toLocaleString('en-IN')}. Diversification review suggested.`,
+            source: 'On-Device Unified Portfolio Engine',
+            deepLink: 'apkaDhan://alerts',
+            requiresAction: false,
+            isRead: false,
+            isTest: false,
+            metadata: { symbol: topAssetPos.holding.symbolOrIdentifier, weight: topAssetPos.portfolioWeightPercent },
+          });
+        } catch (e) {}
+      }
     }
 
     // 2. Top-3 Assets Dominance Signal
@@ -487,3 +519,15 @@ export class UnifiedPortfolioEngine {
 }
 
 export const globalUnifiedPortfolioEngine = new UnifiedPortfolioEngine();
+
+// Auto-wire real-time providers to unified portfolio engine
+import { globalLiveMarketDataProvider } from '../dataSource/LiveMarketDataProvider';
+import { globalLiveCryptoDataProvider } from '../dataSource/LiveCryptoDataProvider';
+
+globalLiveMarketDataProvider.subscribe((tick) => {
+  globalUnifiedPortfolioEngine.updatePriceBySymbol(tick.symbol, tick.lastPrice);
+});
+
+globalLiveCryptoDataProvider.subscribe((tick) => {
+  globalUnifiedPortfolioEngine.updatePriceBySymbol(tick.symbol, tick.priceInr);
+});

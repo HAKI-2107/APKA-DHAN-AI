@@ -3,6 +3,7 @@ import {
   TransactionFilter,
   SpendingSummary,
 } from './types';
+import { globalAlertEngine } from '../notifications/AlertEngine';
 
 /**
  * APKA DHAN AI - ON-DEVICE TRANSACTION REPOSITORY
@@ -58,6 +59,25 @@ export class TransactionRepository {
     // Save record (NOTE: raw text is never retained)
     this.records.set(record.id, record);
     this.persistToStorage();
+
+    // Emit alert for high-value debits (>= ₹50,000)
+    if (record.transactionType?.value === 'DEBIT' && (record.amount?.value ?? 0) >= 50000) {
+      try {
+        globalAlertEngine.processEvent({
+          id: `txn_alert_${record.id}`,
+          type: 'PAYMENT',
+          severity: (record.amount?.value ?? 0) >= 100000 ? 'HIGH' : 'MEDIUM',
+          title: `Large Payment Notice: ₹${record.amount?.value?.toLocaleString('en-IN') ?? '0'}`,
+          summary: `Debit of ₹${record.amount?.value?.toLocaleString('en-IN') ?? '0'} on account ${record.maskedAccount?.value ?? ''} for ${record.merchant?.value || 'unknown recipient'}.`,
+          source: 'Offline SMS Monitor',
+          deepLink: 'apkaDhan://alerts',
+          requiresAction: false,
+          isRead: false,
+          isTest: false,
+          metadata: { amount: record.amount?.value, account: record.maskedAccount?.value },
+        });
+      } catch (e) {}
+    }
 
     return {
       saved: true,
