@@ -1,0 +1,6 @@
+{
+  "name": "Apka Dhan AI",
+  "description": "Financial security, UPI/QR scam detection, fraud threat intelligence, and evidence-based portfolio safety platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
